@@ -1,0 +1,39 @@
+name: WaveVM Cluster Mode-A
+on: workflow_dispatch  # 允许手动点击按钮触发
+
+jobs:
+  deploy-cluster:
+    # 这一行是关键：定义三个节点，分别叫 node-0, node-1, node-2
+    strategy:
+      matrix:
+        node_id: [0, 1, 2]
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 1. 检查环境 & 开启 KVM
+      run: |
+        echo "正在初始化节点: Node-${{ matrix.node_id }}"
+        sudo apt-get update
+        # 安装编译环境、内核头文件、QEMU-KVM、Tailscale必要组件
+        sudo apt-get install -y build-essential linux-headers-$(uname -r) qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils curl
+        # 验证是否支持硬件虚拟化 (Mode A 必须)
+        echo "检查 CPU 虚拟化支持..."
+        egrep -c '(vmx|svm)' /proc/cpuinfo || echo "警告：未检测到硬件虚拟化"
+        sudo chown $USER /dev/kvm
+        ls -l /dev/kvm
+
+    - name: 2. 安装 Tailscale (组网神器)
+      run: |
+        curl -fsSL https://tailscale.com/install.sh | sh
+        # 启动 Tailscale (注意：这里需要你手动替换下面的 KEY)
+        # 或者你也可以不填 Key，等会 SSH 进去手动登录
+        sudo tailscaled --tun=userspace-networking --socket=/tmp/tailscaled.sock &
+    
+    - name: 3. 拉取 WaveVM 代码
+      uses: actions/checkout@v3
+
+    - name: 4. 启动 SSH 穿透 (Tmate)
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-actor: true # 只允许你自己的账号访问（安全）
