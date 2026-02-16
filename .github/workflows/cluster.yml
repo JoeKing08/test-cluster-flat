@@ -24,11 +24,22 @@ jobs:
         ls -l /dev/kvm
 
     - name: 2. 安装 Tailscale (组网神器)
+      env:
+        # [关键] 将 GitHub Secrets 里的 Key 映射为环境变量 TS_KEY
+        TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
       run: |
+        # 下载安装
         curl -fsSL https://tailscale.com/install.sh | sh
-        # 启动 Tailscale (注意：这里需要你手动替换下面的 KEY)
-        # 或者你也可以不填 Key，等会 SSH 进去手动登录
-        sudo tailscaled --tun=userspace-networking --socket=/tmp/tailscaled.sock &
+        
+        # 启动守护进程 (加 > /dev/null 2>&1 是为了不让日志卡住 Action)
+        sudo tailscaled --tun=userspace-networking --socket=/tmp/tailscaled.sock > /dev/null 2>&1 &
+        
+        # 等几秒让它初始化
+        sleep 5
+        
+        # [关键] 执行登录！
+        # 这一步执行成功后，脚本就会认为 Step 2 完成了，自动跳到 Step 3
+        sudo tailscale --socket=/tmp/tailscaled.sock up --authkey=$TS_KEY --hostname="wavevm-node-${{ matrix.node_id }}"
     
     - name: 3. 拉取 WaveVM 代码
       uses: actions/checkout@v3
