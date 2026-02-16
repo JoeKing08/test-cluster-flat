@@ -46,3 +46,6 @@ jobs:
 
     - name: 4. 启动 SSH 穿透 (Tmate)
       uses: mxschmitt/action-tmate@v3
+      with:
+        # 强制使用新加坡服务器，稳定且延迟低
+        tmate-server-host: sgp1.tmate.io
